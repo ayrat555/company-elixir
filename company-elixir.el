@@ -20,25 +20,7 @@
 
 (defvar process)
 
-(defvar evaluator-init-code "
-  evaluator = IEx.Server.start_evaluator([])
-  Process.put(:evaluator, evaluator)
-
-  defmodule CompanyElixirServer do
-    def evaluator do
-      {Process.get(:evaluator), self()}
-    end
-
-    def expand(expr) do
-      case IEx.Autocomplete.expand(Enum.reverse(expr), __MODULE__) do
-        {:yes, _, result} -> result
-        _ -> :not_found
-      end
-    end
-  end
-
-  \n
-")
+(defvar evaluator-init-code )
 
 (defun start-iex ()
   "Start iex."
@@ -48,8 +30,6 @@
     (setq process (start-process-shell-command process-name "*iex*" server-command))
     (set-process-filter process #'company-filter)
     (set-process-query-on-exit-flag process nil)
-    (process-send-string process "\n")
-    (process-send-string process "Logger.remove_backend(:console)\n")
     (process-send-string process evaluator-init-code)
     (set-process-filter process #'company-filter)))
 
@@ -59,7 +39,7 @@
     (print output-without-ansi-chars)))
 
 
-(process-send-string process "CompanyElixirServer.expand('String.re')\n")
+(process-send-string process "CompanyElixirServer.expand('String.')\n")
   ;; (if (not (string-match-p "warn\\|debug\\|info\\|error" output))
 ;;     (print output)))
 
