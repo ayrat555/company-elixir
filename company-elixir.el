@@ -1,8 +1,18 @@
+;;; Code:
 
 (require 'ansi-color)
 
+(defgroup company-elixir nil
+  "Company-Elixir group."
+  :prefix "company-elixir-"
+  :group 'company-elixir)
 
-(defun project-root ()
+(defcustom company-elixir-iex-command "iex -S mix"
+  "Command used to start iex."
+  :type 'string
+  :group 'company-elixir)
+
+(defun company-elixir--project-root ()
   "Find the root of the current mix project."
   (let ((closest-path (or buffer-file-name default-directory)))
     (if (string-match-p (regexp-quote "apps") closest-path)
@@ -12,61 +22,40 @@
           (or umbrella-app-root (mix--find-closest-mix-file-dir closest-path)))
       (find-closest-mix-file-dir closest-path))))
 
-(defun find-closest-mix-file-dir (path)
+(defun company-elixir--find-closest-mix-file-dir (path)
   "Find the closest mix file to the current buffer PATH."
     (let ((root (locate-dominating-file path "mix.exs")))
     (when root
       (file-truename root))))
 
-(defvar process)
+(defun company-elixir--read-init-code ()
+  "Read iex evaluator script and return it as string."
+  (with-temp-buffer
+    (insert-file-contents "./company_elixir_script.exs")
+    (buffer-string)))
 
-(defvar evaluator-init-code )
+(defvar company-elixir--evaluator-init-code nil "Iex evaluator script code.")
 
-(defun start-iex ()
-  "Start iex."
+(defvar company-elixir--process nil "Iex process.")
+
+(defun company-elixir--init-code()
+  "Read iex evaluator if it's not read or return if it's read."
+  (or company-elixir--evaluator-init-code (setq company-elixir--evaluator-init-code (read-init-code))))
+
+(defun company-elixir--start-iex-process ()
+  "Start iex process."
   (let* ((process-name "iex")
-         (default-directory (project-root))
-         (server-command "iex -S mix"))
-    (setq process (start-process-shell-command process-name "*iex*" server-command))
-    (set-process-filter process #'company-filter)
-    (set-process-query-on-exit-flag process nil)
-    (process-send-string process evaluator-init-code)
-    (set-process-filter process #'company-filter)))
+         (default-directory (project-root)))
+    (setq company-elixir--process (start-process-shell-command process-name "*iex*" company-elixir-iex-command))
+    (set-process-filter company-elixir--process #'company-filter)
+    (set-process-query-on-exit-flag company-elixir--process nil)
+    (process-send-string company-elixir--process company-elixir--evaluator-init-code)
+    (set-process-filter company-elixir--process #'company-filter)))
 
-(defun company-filter (_process output)
+(defun company-elixir--company-filter (_process output)
+  "Filter OUTPUT from iex process and redirect them to company."
   (let* ((output-without-ansi-chars (ansi-color-apply output))
          (output-without-props (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)))
     (print output-without-ansi-chars)))
 
-
-(process-send-string process "CompanyElixirServer.expand('String.')\n")
-  ;; (if (not (string-match-p "warn\\|debug\\|info\\|error" output))
-;;     (print output)))
-
-
-;;   setup do
-;;     evaluator = IEx.Server.start_evaluator([])
-;;     Process.put(:evaluator, evaluator)
-;;     :ok
-;;   end
-
-;;   defmodule MyServer do
-;;     def evaluator do
-;;       {Process.get(:evaluator), self()}
-;;     end
-;;   end
-
-;;   defp eval(line) do
-;;     ExUnit.CaptureIO.capture_io(fn ->
-;;       {evaluator, _} = MyServer.evaluator()
-;;       Process.group_leader(evaluator, Process.group_leader())
-;;       send(evaluator, {:eval, self(), line <> "\n", %IEx.State{}})
-;;       assert_receive {:evaled, _, _}
-;;     end)
-;;   end
-
-;;   defp expand(expr) do
-;;     IEx.Autocomplete.expand(Enum.reverse(expr), MyServer)
-;;   end
-
-;; (process-send-string process "String.")
+;; (process-send-string company-elixir--process "CompanyElixirServer.expand('String.')\n")
