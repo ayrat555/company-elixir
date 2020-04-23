@@ -40,22 +40,22 @@
 
 (defun company-elixir--init-code()
   "Read iex evaluator if it's not read or return if it's read."
-  (or company-elixir--evaluator-init-code (setq company-elixir--evaluator-init-code (read-init-code))))
+  (or company-elixir--evaluator-init-code
+      (setq company-elixir--evaluator-init-code (company-elixir--read-init-code))))
 
 (defun company-elixir--start-iex-process ()
   "Start iex process."
   (let* ((process-name "iex")
-         (default-directory (project-root)))
+         (default-directory (company-elixir--project-root)))
     (setq company-elixir--process (start-process-shell-command process-name "*iex*" company-elixir-iex-command))
-    (set-process-filter company-elixir--process #'company-filter)
     (set-process-query-on-exit-flag company-elixir--process nil)
     (process-send-string company-elixir--process company-elixir--evaluator-init-code)
-    (set-process-filter company-elixir--process #'company-filter)))
+    (set-process-filter company-elixir--process #'company-elixir--company-filter)))
 
 (defun company-elixir--company-filter (_process output)
   "Filter OUTPUT from iex process and redirect them to company."
-  (let* ((output-without-ansi-chars (ansi-color-apply output))
-         (output-without-props (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)))
+  (let ((output-without-ansi-chars (ansi-color-apply output)))
+    (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)
     (print output-without-ansi-chars)))
 
 ;; (process-send-string company-elixir--process "CompanyElixirServer.expand('String.')\n")
