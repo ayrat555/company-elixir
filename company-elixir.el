@@ -28,13 +28,18 @@
     (when root
       (file-truename root))))
 
-(defun company-elixir--read-init-code ()
-  "Read iex evaluator script and return it as string."
-  (with-temp-buffer
-    (insert-file-contents "./company_elixir_script.exs")
-    (buffer-string)))
 
-(defvar company-elixir--evaluator-init-code nil "Iex evaluator script code.")
+(defconst company-elixir--script-name "company_elixir_script.exs" "Name of the iex script file.")
+
+(defconst company-elixir--directory
+  (if load-file-name (file-name-directory load-file-name) default-directory)
+  "Iex script directory.")
+
+(defconst company-elixir--evaluator-init-code
+  (with-temp-buffer
+    (insert-file-contents (concat company-elixir--directory company-elixir--script-name))
+    (buffer-string))
+  "Iex evaluator code.")
 
 (defvar company-elixir--process nil "Iex process.")
 
@@ -56,6 +61,9 @@
   "Filter OUTPUT from iex process and redirect them to company."
   (let ((output-without-ansi-chars (ansi-color-apply output)))
     (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)
-    (print output-without-ansi-chars)))
+    (let ((output-without-iex (car (split-string output-without-ansi-chars "iex"))))
+      (if (string-match "\[(?:.|\n)*\][[:blank:]]*$" output-without-iex)
+          (print output-without-iex)
+        (print "not found")))))
 
-;; (process-send-string company-elixir--process "CompanyElixirServer.expand('String.')\n")
+;; (process-send-string company-elixir--process "CompanyElixirServer.expand('String.rel')\n")
