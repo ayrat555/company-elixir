@@ -1,6 +1,8 @@
 ;;; Code:
 
 (require 'ansi-color)
+(require 'cl-lib)
+(require 'company)
 
 (defgroup company-elixir nil
   "Company-Elixir group."
@@ -10,6 +12,11 @@
 (defcustom company-elixir-iex-command "iex -S mix"
   "Command used to start iex."
   :type 'string
+  :group 'company-elixir)
+
+(defcustom company-elixir-major-mode #'elixir-mode
+  "Major mode for company-elixir"
+  :type 'function
   :group 'company-elixir)
 
 (defun company-elixir--project-root ()
@@ -28,7 +35,6 @@
     (when root
       (file-truename root))))
 
-
 (defconst company-elixir--script-name "company_elixir_script.exs" "Name of the iex script file.")
 
 (defconst company-elixir--directory
@@ -43,6 +49,8 @@
 
 (defvar company-elixir--process nil "Iex process.")
 
+(defvar company-elixir--company-callback nil "Company callback to return candidates to.")
+
 (defun company-elixir--init-code()
   "Read iex evaluator if it's not read or return if it's read."
   (or company-elixir--evaluator-init-code
@@ -55,15 +63,36 @@
     (setq company-elixir--process (start-process-shell-command process-name "*iex*" company-elixir-iex-command))
     (set-process-query-on-exit-flag company-elixir--process nil)
     (process-send-string company-elixir--process company-elixir--evaluator-init-code)
-    (set-process-filter company-elixir--process #'company-elixir--company-filter)))
+    (set-process-filter company-elixir--process #'company-elixir--candidates-filter)))
 
-(defun company-elixir--company-filter (_process output)
+(defun company-elixir--candidates-filter (_process output)
   "Filter OUTPUT from iex process and redirect them to company."
   (let ((output-without-ansi-chars (ansi-color-apply output)))
     (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)
     (let ((output-without-iex (car (split-string output-without-ansi-chars "iex"))))
       (if (string-match "\[(?:.|\n)*\][[:blank:]]*$" output-without-iex)
-          (print output-without-iex)
-        (print "not found")))))
+          (let ((candidates (split-string output-without-iex "\[\],[ \f\t\n\r\v']+" t)))
+            (progn
+              (print candidates)
+              (company-elixir--return-candidates candidates)))))))
 
-;; (process-send-string company-elixir--process "CompanyElixirServer.expand('String.rel')\n")
+(defun company-elixir--find-candidates(_expr)
+  "Send request for completion to iex process."
+  (process-send-string company-elixir--process "CompanyElixirServer.expand('Enum.')\n"))
+
+(defun company-elixir (command &optional arg &rest ignored)
+  "Completion backend for company-mode."
+  (interactive (list 'interactive))
+  (cl-case command
+    (interactive (company-begin-backend 'company-elixir))
+    (prefix (and (eq major-mode company-elixir-major-mode)
+                 (company-grab-symbol)))
+    (candidates (cons :async
+                      (lambda (callback)
+                        (setq company-elixir--callback callback)
+                        (company-elixir--find-candidates arg))))))
+
+(defun company-elixir--return-candidates (candidates)
+  "Return CANDIDATES to company-mode."
+  (if (and candidates company-elixir--company-callback)
+    (funcall company-elixir--company-callback candidates)))
