@@ -49,7 +49,7 @@
 
 (defvar company-elixir--process nil "Iex process.")
 
-(defvar company-elixir--company-callback nil "Company callback to return candidates to.")
+(defvar company-elixir--callback nil "Company callback to return candidates to.")
 
 (defun company-elixir--init-code()
   "Read iex evaluator if it's not read or return if it's read."
@@ -72,13 +72,12 @@
     (let ((output-without-iex (car (split-string output-without-ansi-chars "iex"))))
       (if (string-match "\[(?:.|\n)*\][[:blank:]]*$" output-without-iex)
           (let ((candidates (split-string output-without-iex "\[\],[ \f\t\n\r\v']+" t)))
-            (progn
-              (print candidates)
-              (company-elixir--return-candidates candidates)))))))
+            (company-elixir--return-candidates candidates))))))
 
-(defun company-elixir--find-candidates(_expr)
-  "Send request for completion to iex process."
-  (process-send-string company-elixir--process "CompanyElixirServer.expand('Enum.')\n"))
+(defun company-elixir--find-candidates(expr)
+  "Send request for completion to iex process with EXPR."
+  (process-send-string company-elixir--process
+                       (concat "CompanyElixirServer.expand('" expr "')\n")))
 
 (defun company-elixir (command &optional arg &rest ignored)
   "Completion backend for company-mode."
@@ -94,5 +93,5 @@
 
 (defun company-elixir--return-candidates (candidates)
   "Return CANDIDATES to company-mode."
-  (if (and candidates company-elixir--company-callback)
-    (funcall company-elixir--company-callback candidates)))
+  (if company-elixir--callback
+    (funcall company-elixir--callback candidates)))
