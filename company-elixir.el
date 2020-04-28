@@ -1,4 +1,4 @@
-;;; Code:
+;;; Code:  -*- lexical-binding: t; -*-
 
 (require 'ansi-color)
 (require 'cl-lib)
@@ -27,7 +27,7 @@
                (potential-umbrella-root (mapconcat #'identity potential-umbrella-root-parts ""))
                (umbrella-app-root (mix--find-closest-mix-file-dir potential-umbrella-root)))
           (or umbrella-app-root (mix--find-closest-mix-file-dir closest-path)))
-      (find-closest-mix-file-dir closest-path))))
+      (company-elixir--find-closest-mix-file-dir closest-path))))
 
 (defun company-elixir--find-closest-mix-file-dir (path)
   "Find the closest mix file to the current buffer PATH."
@@ -76,14 +76,11 @@
 
 (defun company-elixir--find-candidates(expr)
   "Send request for completion to iex process with EXPR."
-  (print "expr")
-  (print expr)
   (process-send-string company-elixir--process
                        (concat "CompanyElixirServer.expand('" expr "')\n")))
 
 (defun company-elixir (command &optional arg &rest ignored)
   "Completion backend for company-mode."
-  (print arg)
   (interactive (list 'interactive))
   (cl-case command
     (interactive (company-begin-backend 'company-elixir))
@@ -91,32 +88,29 @@
                  (company-elixr--get-prefix)))
     (candidates (cons :async
                       (lambda (callback)
-                        (print arg)
                         (setq company-elixir--callback callback)
                         (company-elixir--find-candidates arg))))))
 
 (defun company-elixir--return-candidates (candidates)
   "Return CANDIDATES to company-mode."
-  (print candidates)
   (if company-elixir--callback
       (funcall company-elixir--callback candidates)))
 
 (defun company-elixr--get-prefix ()
-  (if (or (looking-at "\s") (eolp))
-      (unless (looking-back ".+:" nil)
-        (company-elixir--scope-expression))))
-
-(defun company-elixir--scope-expression ()
   "Return the expression under the cursor."
-  (let (p1 p2)
-    (save-excursion
-      (skip-chars-backward "-_A-Za-z0-9.?!@:")
-      (setq p1 (point))
-      (skip-chars-forward "-_A-Za-z0-9.?!@:")
-      (setq p2 (point))
-      (buffer-substring-no-properties p1 p2))))
+  (if (or (looking-at "\s") (eolp))
+      (let (p1 p2 (skip-chars "-_A-Za-z0-9.?!@:"))
+        (save-excursion
+          (skip-chars-backward skip-chars)
+          (setq p1 (point))
+          (skip-chars-forward skip-chars)
+          (setq p2 (point))
+          (buffer-substring-no-properties p1 p2)))))
 
-(add-hook 'company-elixir-hook
-          (lambda ()
-            (add-to-list (make-local-variable 'company-backends)
-                         'company-elixir)))
+(defun company-elixir-hook()
+  "Add elixir-company to company-backends."
+  (add-to-list (make-local-variable 'company-backends)
+               'company-elixir))
+
+(provide 'company-elixir)
+;;; company-elixir ends here
