@@ -47,6 +47,8 @@
     (buffer-string))
   "Iex evaluator code.")
 
+(defvar company-elixir--last-completion nil "The last expression that was completed.")
+
 (defvar company-elixir--process nil "Iex process.")
 
 (defvar company-elixir--callback nil "Company callback to return candidates to.")
@@ -76,6 +78,8 @@
 
 (defun company-elixir--find-candidates(expr)
   "Send request for completion to iex process with EXPR."
+  (unless company-elixir--process
+    (company-elixir--start-iex-process))
   (process-send-string company-elixir--process
                        (concat "CompanyElixirServer.expand('" expr "')\n")))
 
@@ -89,12 +93,15 @@
     (candidates (cons :async
                       (lambda (callback)
                         (setq company-elixir--callback callback)
-                        (company-elixir--find-candidates arg))))))
+                        (setq company-elixir--last-completion arg)
+                        (company-elixir--find-candidates arg))))
+    (annotation "")))
 
 (defun company-elixir--return-candidates (candidates)
   "Return CANDIDATES to company-mode."
   (if company-elixir--callback
-      (funcall company-elixir--callback candidates)))
+      (funcall company-elixir--callback
+               (mapcar (lambda(var) (concat company-elixir--last-completion var)) candidates))))
 
 (defun company-elixr--get-prefix ()
   "Return the expression under the cursor."
