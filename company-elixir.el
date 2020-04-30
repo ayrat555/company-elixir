@@ -72,7 +72,7 @@
   (let ((output-without-ansi-chars (ansi-color-apply output)))
     (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)
     (let ((output-without-iex (car (split-string output-without-ansi-chars "iex"))))
-      (if (string-match "\[(?:.|\n)*\][[:blank:]]*$" output-without-iex)
+      (if (string-match "\\[" output-without-iex)
           (let ((candidates (split-string output-without-iex "\[\],[ \f\t\n\r\v']+" t)))
             (company-elixir--return-candidates candidates))))))
 
@@ -100,8 +100,14 @@
 (defun company-elixir--return-candidates (candidates)
   "Return CANDIDATES to company-mode."
   (if company-elixir--callback
-      (funcall company-elixir--callback
-               (mapcar (lambda(var) (concat company-elixir--last-completion var)) candidates))))
+      (let* ((prefix (cond
+                      ((string-match-p "\\.$" company-elixir--last-completion) company-elixir--last-completion)
+                      ((not (string-match-p "\\." company-elixir--last-completion)) "")
+                      (t company-elixir--last-completion)))
+             (completions (mapcar (lambda(var) (concat prefix var)) candidates)))
+        (print prefix)
+        (print completions)
+        (funcall company-elixir--callback completions))))
 
 (defun company-elixr--get-prefix ()
   "Return the expression under the cursor."
