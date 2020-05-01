@@ -103,10 +103,11 @@
       (let* ((prefix (cond
                       ((string-match-p "\\.$" company-elixir--last-completion) company-elixir--last-completion)
                       ((not (string-match-p "\\." company-elixir--last-completion)) "")
-                      (t company-elixir--last-completion)))
+                      (t (let* ((parts (split-string company-elixir--last-completion "\\."))
+                                (last-part (car (last parts)))
+                                (last-part-regex (concat last-part "$")))
+                           (replace-regexp-in-string last-part-regex "" company-elixir--last-completion)))))
              (completions (mapcar (lambda(var) (concat prefix var)) candidates)))
-        (print prefix)
-        (print completions)
         (funcall company-elixir--callback completions))))
 
 (defun company-elixr--get-prefix ()
