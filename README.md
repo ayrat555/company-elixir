@@ -4,6 +4,8 @@
 
 It uses a separate IEx (Elixir's interactive shell) process to fetch completions from.
 
+WARNING: This is an experimental package. It can be used as an example of an async backend for the Company completion framework - see [my post](https://www.badykov.com/emacs/2020/05/05/async-company-mode-backend/). It works but I don't use anymore.
+
 ## Installation
 
 Add `company-elixir` to your load path:
