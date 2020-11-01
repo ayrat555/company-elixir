@@ -79,14 +79,14 @@
 
 (defun company-elixir--candidates-filter (_process output)
   "Filter OUTPUT from iex process and redirect them to company."
-  (let ((output-without-ansi-chars (ansi-color-apply output)))
-    (set-text-properties 0 (length output-without-ansi-chars) nil output-without-ansi-chars)
-    (let ((output-without-iex (car (split-string output-without-ansi-chars "iex"))))
-      (if (string-match "\\[" output-without-iex)
-          (let ((candidates (split-string output-without-iex "\[\],[ \f\t\n\r\v']+" t)))
-            (company-elixir--return-candidates candidates))))))
+  (let* ((output-without-ansi-chars (ansi-color-apply output))
+         (output-without-text-props (company-elixir--remove-props-in-string output-without-ansi-chars))
+         (output-without-iex (car (split-string output-without-text-props "iex"))))
+    (if (string-match "\\[" output-without-iex)
+        (let ((candidates (split-string output-without-iex "\[\],[ \f\t\n\r\v']+" t)))
+          (company-elixir--return-candidates candidates)))))
 
-(defun company-elixir--find-candidates(expr)
+(defun company-elixir--find-candidates(expr _aliases)
   "Send request for completion to iex process with EXPR."
   (process-send-string (company-elixir--process (company-elixir--project-root))
                        (concat "CompanyElixirServer.expand('" expr "')\n")))
@@ -100,9 +100,10 @@
                  (company-elixir--get-prefix)))
     (candidates (cons :async
                       (lambda (callback)
-                        (setq company-elixir--callback callback)
-                        (setq company-elixir--last-completion arg)
-                        (company-elixir--find-candidates arg))))))
+                        (let ((aliases (company-elixir--get-matching-buffer-lines "^\s*alias.*$" (buffer-string))))
+                          (setq company-elixir--callback callback)
+                          (setq company-elixir--last-completion arg)
+                          (company-elixir--find-candidates arg aliases)))))))
 
 (defun company-elixir--return-candidates (candidates)
   "Return CANDIDATES to company-mode."
@@ -132,10 +133,28 @@
           (setq p2 (point))
           (buffer-substring-no-properties p1 p2)))))
 
+(defun company-elixir--get-matching-buffer-lines (regexp string)
+  "Get a list of all REGEXP that match in a STRING."
+  (save-match-data
+    (let ((pos 0)
+          matches)
+      (while (string-match regexp string pos)
+        (push (match-string 0 string) matches)
+        (setq pos (match-end 0)))
+      (mapcar #'company-elixir--remove-props-in-string matches))))
+
+(defun company-elixir--remove-props-in-string (string)
+  "Remove text properties in STRING."
+  (progn
+    (set-text-properties 0 (length string) nil string)
+    string))
+
+
 (defun company-elixir-hook()
   "Add elixir-company to company-backends."
   (add-to-list (make-local-variable 'company-backends)
                'company-elixir))
+
 
 (provide 'company-elixir)
 ;;; company-elixir ends here
